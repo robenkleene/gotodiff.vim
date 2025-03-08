@@ -12,8 +12,8 @@ setlocal foldenable
 " Mmemonic "go diff", which is a misnomer because we're going to the hunk. But
 " `gh` is already taken for starting select mode characterwise, and `gd` for
 " goto declaration seems safe to override for `diff` buffers
-nnoremap <silent> <buffer> gd :OpenDiff<CR>
-nnoremap <silent> <buffer> <C-w>d :OpenDiffNew<CR>
+nnoremap <silent> <buffer> gd :Gtdiff<CR>
+nnoremap <silent> <buffer> <C-w>d :split<CR>:Gtdiff<CR>
 nnoremap <silent> <buffer> gyd :YankDiff<CR>
 
 command! YankDiff :call <SID>YankDiff()
@@ -29,9 +29,8 @@ function! s:YankDiff() abort
   bd!
 endfunction
 
-command! OpenDiff :call <SID>OpenDiff()
-command! OpenDiffNew :split | call <SID>OpenDiff()
-function! s:OpenDiff() abort
+command! Gtdiff :call <SID>Gtdiff()
+function! s:Gtdiff() abort
   " `- 1` for one line for the diff indicator gutter
   let l:destcol = col('.') - 1
   let l:grep = system('~/.bin/t_diff_grep '.line('.').' | tail -n1 | cut -d: -f1,2', join(getline(1,'$'), "\n"))
