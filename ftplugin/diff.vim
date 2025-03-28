@@ -35,5 +35,5 @@ function! s:GtdEdit(cmd) abort
   let l:grep = system('~/.bin/t_diff_grep '.line('.').' | tail -n1 | cut -d: -f1,2', join(getline(1,'$'), "\n"))
   let l:parts = split(l:grep, ':')
   let l:destlnum = l:parts[1]
-  exec a:cmd.' '.'+call cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
+  exec a:cmd.' '.'+call\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
 endfunction
