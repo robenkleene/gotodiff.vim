@@ -12,6 +12,7 @@ setlocal foldenable
 nnoremap <silent> <buffer> gd :GtdEdit<CR>
 nnoremap <silent> <buffer> <C-w>d :GtdNew<CR>
 nnoremap <silent> <buffer> gyd :GtdYank<CR>
+nnoremap <silent> <buffer> gC :GtdCompile<CR>
 
 " Mmemonic "go diff", which is a misnomer because we're going to the hunk. But
 " `gh` is already taken for starting select mode characterwise, and `gd` for
@@ -40,4 +41,9 @@ function! s:GtdEdit(cmd) abort
   let l:parts = split(l:grep, ':')
   let l:destlnum = str2nr(l:parts[1])
   exec a:cmd.' '.'+call\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
+endfunction
+
+command! GtdCompile :call <SID>GtdCompile()
+function! s:GtdCompile()
+  cgetexpr systemlist('~/.bin/t_diff_grep', join(getline(1,'$'), "\n"))
 endfunction
