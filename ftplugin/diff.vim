@@ -45,5 +45,5 @@ endfunction
 
 command! GtdCompile :call <SID>GtdCompile()
 function! s:GtdCompile()
-  cgetexpr systemlist('~/.bin/t_diff_grep', join(getline(1,'$'), "\n"))
+  cgetexpr systemlist('~/.bin/t_diff_grep +', join(getline(1,'$'), "\n"))
 endfunction
