@@ -9,10 +9,12 @@ setlocal foldmethod=expr
 " Start with folding enabling bindings to navigate folds are available
 setlocal foldenable
 
-nnoremap <silent> <buffer> gd :GtdEdit<CR>
-nnoremap <silent> <buffer> <C-w>d :GtdNew<CR>
-nnoremap <silent> <buffer> gyd :GtdYank<CR>
-nnoremap <silent> <buffer> gC :GtdCompile<CR>
+" These are `silent!` because piping via `system()` sometimes produces an
+" error (even though the command works even when the error is produced)
+nnoremap <silent> <buffer> gd :silent! GtdEdit<CR>
+nnoremap <silent> <buffer> <C-w>d :silent! GtdNew<CR>
+nnoremap <silent> <buffer> gyd :silent! GtdYank<CR>
+nnoremap <silent> <buffer> gC :silent! GtdCompile<CR>
 
 " Mmemonic "go diff", which is a misnomer because we're going to the hunk. But
 " `gh` is already taken for starting select mode characterwise, and `gd` for
