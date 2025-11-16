@@ -1,22 +1,11 @@
 setlocal foldexpr=getline(v:lnum)=~'^diff'?'>1':getline(v:lnum)=~'^@@'?'>2':'='
 setlocal foldmethod=expr
-" Allow quickly quitting without saving when piping a diff to vim
-" Handled as default for piping now
-" setlocal buftype=nofile
-
-" Useful for debugging
-" setlocal foldcolumn=3
-" Start with folding enabling bindings to navigate folds are available
 setlocal foldenable
 
 nnoremap <silent> <buffer> gd :GtdEdit<CR>
 nnoremap <silent> <buffer> <C-w>d :GtdNew<CR>
 nnoremap <silent> <buffer> gyd :GtdYank<CR>
 nnoremap <silent> <buffer> gC :GtdCompile<CR>
-
-" Mmemonic "go diff", which is a misnomer because we're going to the hunk. But
-" `gh` is already taken for starting select mode characterwise, and `gd` for
-" goto declaration seems safe to override for `diff` buffers
 
 command! GtdYank :call <SID>GtdYank()
 function! s:GtdYank() abort
