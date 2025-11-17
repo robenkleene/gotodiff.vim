@@ -82,17 +82,21 @@ function! s:DiffToGrep(cursor_only) abort
       continue
 
     " --- a/...
-    elseif l =~# '^--- \(a/\)\?\(.*\)$'
-      let m = matchlist(l, '^--- \(a/\)\?\(.*\)$')
-      if len(m) >= 2
+    elseif l =~# '^--- '
+      " Capture only the path, make 'a/' non-capturing.
+      let m = matchlist(l, '^--- \%(a/\)\?\(.*\)$')
+      " Only fill in if we don't already have a_path from 'diff --git'
+      if len(m) >= 2 && a_path ==# ''
         let a_path = m[1]
       endif
       continue
 
     " +++ b/...
-    elseif l =~# '^+++ \(b/\)\?\(.*\)$'
-      let m = matchlist(l, '^+++ \(b/\)\?\(.*\)$')
-      if len(m) >= 2
+    elseif l =~# '^+++ '
+      " Capture only the path, make 'b/' non-capturing.
+      let m = matchlist(l, '^+++ \%(b/\)\?\(.*\)$')
+      " Only fill in if we don't already have b_path from 'diff --git'
+      if len(m) >= 2 && b_path ==# ''
         let b_path = m[1]
       endif
       continue
