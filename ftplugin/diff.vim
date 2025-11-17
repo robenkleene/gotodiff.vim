@@ -77,34 +77,36 @@ function! s:DiffToGrep(cursor_only) abort
       if len(m) >= 3
         let a_path = m[1]
         let b_path = m[2]
+      else
+        let a_path = ''
+        let b_path = ''
       endif
       let hunk_active = 0
       continue
+    endif
 
-    " --- a/...
-    elseif l =~# '^--- '
-      " Capture only the path, make 'a/' non-capturing.
+    " --- a/...   (only when not inside a hunk)
+    if !hunk_active && l =~# '^--- '
       let m = matchlist(l, '^--- \%(a/\)\?\(.*\)$')
-      " Only fill in if we don't already have a_path from 'diff --git'
       if len(m) >= 2 && a_path ==# ''
         let a_path = m[1]
       endif
       continue
+    endif
 
-    " +++ b/...
-    elseif l =~# '^+++ '
-      " Capture only the path, make 'b/' non-capturing.
+    " +++ b/...   (only when not inside a hunk)
+    if !hunk_active && l =~# '^+++ '
       let m = matchlist(l, '^+++ \%(b/\)\?\(.*\)$')
-      " Only fill in if we don't already have b_path from 'diff --git'
       if len(m) >= 2 && b_path ==# ''
         let b_path = m[1]
       endif
       continue
+    endif
 
     " @@ -old,+new @@
-    elseif l =~# '^@@ '
-      let m = matchlist(l,
-            \ '^@@ \+-\(\d\+\)\%(,\d\+\)\? \+[+]\(\d\+\)\%(,\d\+\)\? \+@@')
+    if l =~# '^@@ '
+      " Simpler, safe header pattern: @@ -start,len +start,len @@
+      let m = matchlist(l, '^@@ -\(\d\+\)\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@')
       if len(m) >= 3
         let old_ln = str2nr(m[1])
         let new_ln = str2nr(m[2])
@@ -116,12 +118,18 @@ function! s:DiffToGrep(cursor_only) abort
     endif
 
     if !hunk_active
+      " Not inside a hunk, ignore random lines.
       continue
     endif
 
-    " Inside a hunk.
+    " Ignore the special marker line inside hunks.
+    if l =~# '^\\ No newline at end of file'
+      continue
+    endif
+
+    " ---------- inside a hunk ----------
     if l =~# '^ '
-      " context line → only interesting for cursor mode
+      " context
       if lnum == cursor_lnum
         let path = (b_path !=# '' ? b_path : a_path)
         if path !=# '' && path !=# '/dev/null'
@@ -171,9 +179,5 @@ function! s:DiffToGrep(cursor_only) abort
     endif
   endfor
 
-  if a:cursor_only
-    return cursor_grep
-  else
-    return results
-  endif
+  return a:cursor_only ? cursor_grep : results
 endfunction
