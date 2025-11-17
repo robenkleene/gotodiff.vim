@@ -25,27 +25,29 @@ endfunction
 command! GtdEdit :call <SID>GtdEdit("edit")
 command! GtdPedit :call <SID>GtdEdit("pedit")
 command! GtdNew :call <SID>GtdEdit("split")
-function! s:GtdEdit(cmd) abort
-  " `- 1` for one line for the diff indicator gutter
-  let l:destcol = col('.') - 1
-  " Will produce an error if the file is too large from the `getline(1,'$')`,
-  " there's no way to suppress this error
-  let l:grep = system('~/.bin/t_diff_grep '.line('.').' | tail -n1 | cut -d: -f1,2', join(getline(1,'$'), "\n"))
-  let l:parts = split(l:grep, ':')
-  let l:destlnum = str2nr(l:parts[1])
-  exec a:cmd.' '.'+call\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
-endfunction
 
 command! GtdCompile :call <SID>GtdCompile()
 function! s:GtdCompile()
   cgetexpr systemlist('~/.bin/t_diff_grep +', join(getline(1,'$'), "\n"))
 endfunction
 
+function! s:GtdEdit(cmd) abort
+  " `- 1` for one line for the diff indicator gutter
+  let l:destcol = col('.') - 1
+  " Will produce an error if the file is too large from the `getline(1,'$')`,
+  " there's no way to suppress this error
+  " let l:grep = system('~/.bin/t_diff_grep '.line('.').' | tail -n1 | cut -d: -f1,2', join(getline(1,'$'), "\n"))
+  let l:grep = <SID>DiffToGrepAtCursor()
+  let l:parts = split(l:grep, ':')
+  let l:destlnum = str2nr(l:parts[1])
+  exec a:cmd.' '.'+call\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
+endfunction
+
 function! s:DiffToGrepAtCursor() abort
   let lnum = line('.')
   let line_text = getline(lnum)
 
-  let hunk_lnum = search('^@@\@!\|^@@', 'bnW') " first @@ above, do not move cursor
+  let hunk_lnum = search('^@@', 'bnW')
   if hunk_lnum == 0
     return ''
   endif
@@ -53,7 +55,7 @@ function! s:DiffToGrepAtCursor() abort
 
   " Capture old and new starts (and optional lengths)
   " Examples: @@ -12,7 +34,9 @@  or @@ -12 +34 @@
-  let m = matchlist(hunk, '^@@\s\+-\(\d\+\)\%(,\d\+\)\?\s\+\+\(\d\+\)\%(,\d\+\)\?\s\+@@')
+  let m = matchlist(hunk, '^@@\s\+-\(\d\+\)\%(,\d\+\)\?\s\++\(\d\+\)\%(,\d\+\)\?\s\+@@')
   if len(m) == 0
     return ''
   endif
@@ -76,16 +78,16 @@ function! s:DiffToGrepAtCursor() abort
 
   " Fall back to ---/+++ lines if needed (git may show /dev/null)
   if b_path ==# ''
-    let plus3_lnum = search('^\+\+\+ \(b/\)\?\(.*\)$', 'bnW')
+    let plus3_lnum  = search('^+++ \(b/\)\?\(.*\)$', 'bnW')
     if plus3_lnum > 0
-      let m3 = matchlist(getline(plus3_lnum), '^\+\+\+ \(?:b/\)\?\(.*\)$')
+      let m3 = matchlist(getline(plus3_lnum), '^+++ \%(b/\)\?\(.*\)$')
       if len(m3) >= 2 | let b_path = m3[1] | endif
     endif
   endif
   if a_path ==# ''
     let minus3_lnum = search('^--- \(a/\)\?\(.*\)$', 'bnW')
     if minus3_lnum > 0
-      let m4 = matchlist(getline(minus3_lnum), '^--- \(?:a/\)\?\(.*\)$')
+      let m4 = matchlist(getline(minus3_lnum), '^--- \%(a/\)\?\(.*\)$')
       if len(m4) >= 2 | let a_path = m4[1] | endif
     endif
   endif
@@ -111,7 +113,7 @@ function! s:DiffToGrepAtCursor() abort
       endif
       let old_ln += 1
       let new_ln += 1
-    elseif l =~# '^\+'
+      elseif l =~# '^+'
       " added in new file
       if i == lnum
         let target_sign = '+'
@@ -119,7 +121,7 @@ function! s:DiffToGrepAtCursor() abort
         let target_lnum = new_ln
       endif
       let new_ln += 1
-    elseif l =~# '^\-'
+      elseif l =~# '^-'
       " removed from old file
       if i == lnum
         let target_sign = '-'
@@ -129,7 +131,8 @@ function! s:DiffToGrepAtCursor() abort
       let old_ln += 1
     elseif l =~# '^@@'
       " a new hunk unexpectedly before cursor; reset
-      let m = matchlist(l, '^@@\s\+-\(\d\+\)\%(,\d\+\)\?\s\+\+\(\d\+\)\%(,\d\+\)\?\s\+@@')
+      let m = matchlist(l,
+            \ '^@@ \+-\(\d\+\)\%(,\d\+\)\? \+[+]\(\d\+\)\%(,\d\+\)\? \+@@')
       if len(m) >= 3
         let old_ln = str2nr(m[1])
         let new_ln = str2nr(m[2])
