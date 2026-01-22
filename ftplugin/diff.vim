@@ -57,9 +57,9 @@ function! s:GtdEdit(cmd) abort
     return
   endif
   let l:parts = split(l:grep, ':')
-  if len(l:parts) >= 2
+  if len(l:parts) >= 2 && l:parts[1] !=# ''
     let l:destlnum = str2nr(l:parts[1])
-    exec a:cmd.' '.'+call\\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
+    exec a:cmd.' '.'+call\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
   else
     " Just a filename, open at line 1
     exec a:cmd.' '.fnameescape(l:parts[0])
