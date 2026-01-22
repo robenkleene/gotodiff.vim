@@ -105,22 +105,18 @@ function! s:DiffToGrep(cursor_only) abort
 
     " @@ -old,+new @@ or @@@ -old1 -old2 +new @@@ (combined diff)
     if l =~# '^@@@\? '
-      " Regular diff: @@ -start,len +start,len @@
-      let m = matchlist(l, '^@@ -\(\d\+\)\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@')
-      if len(m) >= 3
-        let old_ln = str2nr(m[1])
-        let new_ln = str2nr(m[2])
+      let m_regular = matchlist(l, '^@@ -\(\d\+\)\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@')
+      let m_combined = matchlist(l, '^@@@ -\d\+\%(,\d\+\)\? -\d\+\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@@')
+      if len(m_regular) >= 3
+        let old_ln = str2nr(m_regular[1])
+        let new_ln = str2nr(m_regular[2])
+        let hunk_active = 1
+      elseif len(m_combined) >= 2
+        let old_ln = str2nr(m_combined[1])
+        let new_ln = str2nr(m_combined[1])
         let hunk_active = 1
       else
-        " Combined diff: @@@ -start1,len1 -start2,len2 +start,len @@@
-        let m = matchlist(l, '^@@@ -\d\+\%(,\d\+\)\? -\d\+\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@@')
-        if len(m) >= 2
-          let old_ln = str2nr(m[1])
-          let new_ln = str2nr(m[1])
-          let hunk_active = 1
-        else
-          let hunk_active = 0
-        endif
+        let hunk_active = 0
       endif
       continue
     endif
