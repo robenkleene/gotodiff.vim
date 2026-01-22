@@ -52,9 +52,18 @@ function! s:GtdEdit(cmd) abort
   " there's no way to suppress this error
   " let l:grep = system('~/.bin/t_diff_grep '.line('.').' | tail -n1 | cut -d: -f1,2', join(getline(1,'$'), "\n"))
   let l:grep = <SID>DiffToGrep(v:true)
+  if empty(l:grep)
+    echo "No file found on this line"
+    return
+  endif
   let l:parts = split(l:grep, ':')
-  let l:destlnum = str2nr(l:parts[1])
-  exec a:cmd.' '.'+call\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
+  if len(l:parts) >= 2
+    let l:destlnum = str2nr(l:parts[1])
+    exec a:cmd.' '.'+call\\ cursor('.l:destlnum.','.l:destcol.') '.fnameescape(l:parts[0])
+  else
+    " Just a filename, open at line 1
+    exec a:cmd.' '.fnameescape(l:parts[0])
+  endif
 endfunction
 
 function! s:DiffToGrep(cursor_only) abort
@@ -67,21 +76,41 @@ function! s:DiffToGrep(cursor_only) abort
   let old_ln       = 0
   let new_ln       = 0
   let hunk_active  = 0
+  let current_file = ''
 
   for lnum in range(1, line('$'))
     let l = getline(lnum)
 
-    " diff --git a/... b/...
+    " diff --git a/... b/... or diff --cc ...
     if l =~# '^diff --git a/.\+ b/.\+$'
       let m = matchlist(l, '^diff --git a/\(.\{-}\)\s\+b/\(.\+\)$')
       if len(m) >= 3
         let a_path = m[1]
         let b_path = m[2]
+        let current_file = b_path
       else
         let a_path = ''
         let b_path = ''
       endif
       let hunk_active = 0
+      if lnum == cursor_lnum && a:cursor_only && current_file !=# ''
+        return current_file
+      endif
+      continue
+    endif
+
+    " diff --cc file (combined diff header)
+    if l =~# '^diff --cc '
+      let m = matchlist(l, '^diff --cc \(.\+\)$')
+      if len(m) >= 2
+        let a_path = m[1]
+        let b_path = m[1]
+        let current_file = m[1]
+      endif
+      let hunk_active = 0
+      if lnum == cursor_lnum && a:cursor_only && current_file !=# ''
+        return current_file
+      endif
       continue
     endif
 
@@ -91,6 +120,12 @@ function! s:DiffToGrep(cursor_only) abort
       if len(m) >= 2 && a_path ==# ''
         let a_path = m[1]
       endif
+      if lnum == cursor_lnum && a:cursor_only
+        let path = (b_path !=# '' ? b_path : a_path)
+        if path !=# '' && path !=# '/dev/null'
+          return path
+        endif
+      endif
       continue
     endif
 
@@ -99,6 +134,12 @@ function! s:DiffToGrep(cursor_only) abort
       let m = matchlist(l, '^+++ \%(b/\)\?\(.*\)$')
       if len(m) >= 2 && b_path ==# ''
         let b_path = m[1]
+      endif
+      if lnum == cursor_lnum && a:cursor_only
+        let path = (b_path !=# '' ? b_path : a_path)
+        if path !=# '' && path !=# '/dev/null'
+          return path
+        endif
       endif
       continue
     endif
@@ -117,6 +158,12 @@ function! s:DiffToGrep(cursor_only) abort
         let hunk_active = 1
       else
         let hunk_active = 0
+      endif
+      if lnum == cursor_lnum && a:cursor_only
+        let path = (b_path !=# '' ? b_path : a_path)
+        if path !=# '' && path !=# '/dev/null' && hunk_active
+          return printf('%s:%d:', path, new_ln)
+        endif
       endif
       continue
     endif
