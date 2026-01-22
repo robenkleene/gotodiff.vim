@@ -71,30 +71,25 @@ function! s:DiffToGrep(cursor_only) abort
   let cursor_grep  = ''
   let results      = []
 
-  let a_path       = ''
-  let b_path       = ''
+  let file_path    = ''
   let old_ln       = 0
   let new_ln       = 0
   let hunk_active  = 0
-  let current_file = ''
 
   for lnum in range(1, line('$'))
     let l = getline(lnum)
 
-    " diff --git a/... b/... or diff --cc ...
+    " diff --git a/... b/...
     if l =~# '^diff --git a/.\+ b/.\+$'
       let m = matchlist(l, '^diff --git a/\(.\{-}\)\s\+b/\(.\+\)$')
       if len(m) >= 3
-        let a_path = m[1]
-        let b_path = m[2]
-        let current_file = b_path
+        let file_path = m[2]  " Use b_path (new file)
       else
-        let a_path = ''
-        let b_path = ''
+        let file_path = ''
       endif
       let hunk_active = 0
-      if lnum == cursor_lnum && a:cursor_only && current_file !=# ''
-        return current_file
+      if lnum == cursor_lnum && a:cursor_only && file_path !=# ''
+        return file_path
       endif
       continue
     endif
@@ -103,13 +98,11 @@ function! s:DiffToGrep(cursor_only) abort
     if l =~# '^diff --cc '
       let m = matchlist(l, '^diff --cc \(.\+\)$')
       if len(m) >= 2
-        let a_path = m[1]
-        let b_path = m[1]
-        let current_file = m[1]
+        let file_path = m[1]
       endif
       let hunk_active = 0
-      if lnum == cursor_lnum && a:cursor_only && current_file !=# ''
-        return current_file
+      if lnum == cursor_lnum && a:cursor_only && file_path !=# ''
+        return file_path
       endif
       continue
     endif
@@ -117,13 +110,12 @@ function! s:DiffToGrep(cursor_only) abort
     " --- a/...   (only when not inside a hunk)
     if !hunk_active && l =~# '^--- '
       let m = matchlist(l, '^--- \%(a/\)\?\(.*\)$')
-      if len(m) >= 2 && a_path ==# ''
-        let a_path = m[1]
+      if len(m) >= 2 && file_path ==# ''
+        let file_path = m[1]
       endif
       if lnum == cursor_lnum && a:cursor_only
-        let path = (b_path !=# '' ? b_path : a_path)
-        if path !=# '' && path !=# '/dev/null'
-          return path
+        if file_path !=# '' && file_path !=# '/dev/null'
+          return file_path
         endif
       endif
       continue
@@ -132,13 +124,12 @@ function! s:DiffToGrep(cursor_only) abort
     " +++ b/...   (only when not inside a hunk)
     if !hunk_active && l =~# '^+++ '
       let m = matchlist(l, '^+++ \%(b/\)\?\(.*\)$')
-      if len(m) >= 2 && b_path ==# ''
-        let b_path = m[1]
+      if len(m) >= 2
+        let file_path = m[1]  " Prefer b_path (new file)
       endif
       if lnum == cursor_lnum && a:cursor_only
-        let path = (b_path !=# '' ? b_path : a_path)
-        if path !=# '' && path !=# '/dev/null'
-          return path
+        if file_path !=# '' && file_path !=# '/dev/null'
+          return file_path
         endif
       endif
       continue
@@ -160,9 +151,8 @@ function! s:DiffToGrep(cursor_only) abort
         let hunk_active = 0
       endif
       if lnum == cursor_lnum && a:cursor_only
-        let path = (b_path !=# '' ? b_path : a_path)
-        if path !=# '' && path !=# '/dev/null' && hunk_active
-          return printf('%s:%d:', path, new_ln)
+        if file_path !=# '' && file_path !=# '/dev/null' && hunk_active
+          return printf('%s:%d:', file_path, new_ln)
         endif
       endif
       continue
@@ -188,10 +178,9 @@ function! s:DiffToGrep(cursor_only) abort
     if first_char ==# ' ' || (first_char ==# ' ' && second_char ==# ' ')
       " context
       if lnum == cursor_lnum
-        let path = (b_path !=# '' ? b_path : a_path)
-        if path !=# '' && path !=# '/dev/null'
+        if file_path !=# '' && file_path !=# '/dev/null'
           let text = strpart(l, 1)
-          let cursor_grep = printf('%s:%d:%s', path, new_ln, text)
+          let cursor_grep = printf('%s:%d:%s', file_path, new_ln, text)
           if a:cursor_only
             return cursor_grep
           endif
@@ -202,15 +191,14 @@ function! s:DiffToGrep(cursor_only) abort
 
     elseif first_char ==# '+'
       " added line in new file (both regular + and combined ++)
-      let path = (b_path !=# '' ? b_path : a_path)
-      if path !=# '' && path !=# '/dev/null'
+      if file_path !=# '' && file_path !=# '/dev/null'
         " Strip all leading + characters for combined diffs
         let text = substitute(l, '^+\+', '', '')
         if !a:cursor_only
-          call add(results, printf('%s:%d:%s', path, new_ln, text))
+          call add(results, printf('%s:%d:%s', file_path, new_ln, text))
         endif
         if lnum == cursor_lnum
-          let cursor_grep = printf('%s:%d:%s', path, new_ln, text)
+          let cursor_grep = printf('%s:%d:%s', file_path, new_ln, text)
           if a:cursor_only
             return cursor_grep
           endif
@@ -220,15 +208,14 @@ function! s:DiffToGrep(cursor_only) abort
 
     elseif first_char ==# '-'
       " removed line from old file (both regular - and combined --)
-      let path = (a_path !=# '' ? a_path : b_path)
-      if path !=# '' && path !=# '/dev/null'
+      if file_path !=# '' && file_path !=# '/dev/null'
         " Strip all leading - characters for combined diffs
         let text = substitute(l, '^-\+', '', '')
         if !a:cursor_only
-          call add(results, printf('%s:%d:%s', path, old_ln, text))
+          call add(results, printf('%s:%d:%s', file_path, old_ln, text))
         endif
         if lnum == cursor_lnum
-          let cursor_grep = printf('%s:%d:%s', path, old_ln, text)
+          let cursor_grep = printf('%s:%d:%s', file_path, old_ln, text)
           if a:cursor_only
             return cursor_grep
           endif
