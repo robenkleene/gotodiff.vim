@@ -103,16 +103,24 @@ function! s:DiffToGrep(cursor_only) abort
       continue
     endif
 
-    " @@ -old,+new @@
-    if l =~# '^@@ '
-      " Simpler, safe header pattern: @@ -start,len +start,len @@
+    " @@ -old,+new @@ or @@@ -old1 -old2 +new @@@ (combined diff)
+    if l =~# '^@@@\? '
+      " Regular diff: @@ -start,len +start,len @@
       let m = matchlist(l, '^@@ -\(\d\+\)\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@')
       if len(m) >= 3
         let old_ln = str2nr(m[1])
         let new_ln = str2nr(m[2])
         let hunk_active = 1
       else
-        let hunk_active = 0
+        " Combined diff: @@@ -start1,len1 -start2,len2 +start,len @@@
+        let m = matchlist(l, '^@@@ -\d\+\%(,\d\+\)\? -\d\+\%(,\d\+\)\? +\(\d\+\)\%(,\d\+\)\? @@@')
+        if len(m) >= 2
+          let old_ln = str2nr(m[1])
+          let new_ln = str2nr(m[1])
+          let hunk_active = 1
+        else
+          let hunk_active = 0
+        endif
       endif
       continue
     endif
@@ -128,7 +136,13 @@ function! s:DiffToGrep(cursor_only) abort
     endif
 
     " ---------- inside a hunk ----------
-    if l =~# '^ '
+    " Handle both regular diff and combined diff formats
+    " Combined diff uses multiple prefix chars (++, +-, etc.)
+    let first_char = strpart(l, 0, 1)
+    let second_char = strpart(l, 1, 1)
+    
+    " Context line: space in regular diff, or space+space in combined diff
+    if first_char ==# ' ' || (first_char ==# ' ' && second_char ==# ' ')
       " context
       if lnum == cursor_lnum
         let path = (b_path !=# '' ? b_path : a_path)
@@ -143,11 +157,12 @@ function! s:DiffToGrep(cursor_only) abort
       let old_ln += 1
       let new_ln += 1
 
-    elseif l =~# '^+'
-      " added line in new file
+    elseif first_char ==# '+'
+      " added line in new file (both regular + and combined ++)
       let path = (b_path !=# '' ? b_path : a_path)
       if path !=# '' && path !=# '/dev/null'
-        let text = strpart(l, 1)
+        " Strip all leading + characters for combined diffs
+        let text = substitute(l, '^+\+', '', '')
         if !a:cursor_only
           call add(results, printf('%s:%d:%s', path, new_ln, text))
         endif
@@ -160,11 +175,12 @@ function! s:DiffToGrep(cursor_only) abort
       endif
       let new_ln += 1
 
-    elseif l =~# '^-'
-      " removed line from old file
+    elseif first_char ==# '-'
+      " removed line from old file (both regular - and combined --)
       let path = (a_path !=# '' ? a_path : b_path)
       if path !=# '' && path !=# '/dev/null'
-        let text = strpart(l, 1)
+        " Strip all leading - characters for combined diffs
+        let text = substitute(l, '^-\+', '', '')
         if !a:cursor_only
           call add(results, printf('%s:%d:%s', path, old_ln, text))
         endif
