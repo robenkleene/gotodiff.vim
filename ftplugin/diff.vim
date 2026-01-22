@@ -159,7 +159,10 @@ function! s:DiffToGrep(cursor_only) abort
     endif
 
     if !hunk_active
-      " Not inside a hunk, ignore random lines.
+      " Not inside a hunk - fallback to file_path if available
+      if lnum == cursor_lnum && a:cursor_only && file_path !=# '' && file_path !=# '/dev/null'
+        return file_path
+      endif
       continue
     endif
 
