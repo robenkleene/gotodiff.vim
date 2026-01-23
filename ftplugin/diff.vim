@@ -4,16 +4,18 @@ setlocal foldenable
 
 nnoremap <silent> <buffer> gd :GtdEdit<CR>
 nnoremap <silent> <buffer> <C-w>d :GtdNew<CR>
+nnoremap <silent> <buffer> gC :GtdQflist<CR>
+nnoremap <silent> <buffer> gL :GtdLoclist<CR>
 
 command! GtdEdit :call <SID>GtdEdit("edit")
 command! GtdPedit :call <SID>GtdEdit("pedit")
 command! GtdNew :call <SID>GtdEdit("split")
 
-command! GtdLoclist call <SID>GtdLoclist()
+command! GtdLoclist :call <SID>GtdLoclist()
 command! GtdQflist :call <SID>GtdQflist()
 
 function! s:GtdQflist()
-  let l:lines = <SID>DiffToGrepAt(v:false)
+  let l:lines = <SID>DiffToGrep(v:false)
   if empty(l:lines)
     echo "No changed lines found"
     return
@@ -29,7 +31,7 @@ function! s:GtdQflist()
 endfunction
 
 function! s:GtdLocation() abort
-  let l:lines = <SID>DiffToGrepAt(v:false)
+  let l:lines = <SID>DiffToGrep(v:false)
   if empty(l:lines)
     echo "No changed lines found"
     return
