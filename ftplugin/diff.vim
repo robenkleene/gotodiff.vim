@@ -216,9 +216,7 @@ function! s:DiffToGrep(cursor_only) abort
       if file_path !=# '' && file_path !=# '/dev/null'
         " Strip all leading - characters for combined diffs
         let text = substitute(l, '^-\+', '', '')
-        if !a:cursor_only
-          call add(results, printf('%s:%d:%s', file_path, old_ln, text))
-        endif
+        " Don't add deleted lines to results for quickfix/location list
         if lnum == cursor_lnum
           let cursor_grep = printf('%s:%d:%s', file_path, old_ln, text)
           if a:cursor_only
