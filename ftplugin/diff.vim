@@ -110,8 +110,9 @@ function! s:DiffToGrep(cursor_only) abort
     endif
 
     " --- a/...   (only when not inside a hunk)
+    " `\s*$` strips trailing tabs that `git diff` can append after filenames
     if !hunk_active && l =~# '^--- '
-      let m = matchlist(l, '^--- \%(a/\)\?\(.*\)$')
+      let m = matchlist(l, '^--- \%(a/\)\?\(.\{-}\)\s*$')
       if len(m) >= 2 && file_path ==# ''
         let file_path = m[1]
       endif
@@ -124,8 +125,9 @@ function! s:DiffToGrep(cursor_only) abort
     endif
 
     " +++ b/...   (only when not inside a hunk)
+    " `\s*$` strips trailing tabs that `git diff` can append after filenames
     if !hunk_active && l =~# '^+++ '
-      let m = matchlist(l, '^+++ \%(b/\)\?\(.*\)$')
+      let m = matchlist(l, '^+++ \%(b/\)\?\(.\{-}\)\s*$')
       if len(m) >= 2
         let file_path = m[1]  " Prefer b_path (new file)
       endif
