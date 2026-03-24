@@ -6,7 +6,6 @@ nnoremap <silent> <buffer> gd :GtdEdit<CR>
 nnoremap <silent> <buffer> <C-w>d :GtdNew<CR>
 nnoremap <silent> <buffer> gC :GtdQflist<CR>
 nnoremap <silent> <buffer> gL :GtdLoclist<CR>
-nnoremap <silent> <buffer> gW :GtdWrite<CR>
 
 command! GtdEdit :call <SID>GtdEdit("edit")
 command! GtdPedit :call <SID>GtdEdit("pedit")
@@ -14,7 +13,6 @@ command! GtdNew :call <SID>GtdEdit("split")
 
 command! GtdLoclist :call <SID>GtdLoclist()
 command! GtdQflist :call <SID>GtdQflist()
-command! GtdWrite :call <SID>GtdWrite()
 
 function! s:GtdQflist()
   let l:lines = <SID>DiffToGrep(v:false)
@@ -68,152 +66,6 @@ function! s:GtdEdit(cmd) abort
     " Just a filename, open at line 1
     exec a:cmd.' '.fnameescape(l:parts[0])
   endif
-endfunction
-
-function! s:DiffToHunks() abort
-  let hunks = []
-  let file_path = ''
-  let hunk_active = 0
-  let old_start = 0
-  let old_count = 0
-  let new_lines = []
-
-  for lnum in range(1, line('$'))
-    let l = getline(lnum)
-
-    " diff --git a/... b/...
-    if l =~# '^diff --git a/.\+ b/.\+$'
-      let m = matchlist(l, '^diff --git a/\(.\{-}\)\s\+b/\(.\+\)$')
-      if len(m) >= 3
-        let file_path = m[2]
-      else
-        let file_path = ''
-      endif
-      let hunk_active = 0
-      continue
-    endif
-
-    " diff --cc file (combined diff header)
-    if l =~# '^diff --cc '
-      let m = matchlist(l, '^diff --cc \(.\+\)$')
-      if len(m) >= 2
-        let file_path = m[1]
-      endif
-      let hunk_active = 0
-      continue
-    endif
-
-    if !hunk_active && l =~# '^--- '
-      let m = matchlist(l, '^--- \%(a/\)\?\(.\{-}\)\s*$')
-      if len(m) >= 2 && file_path ==# ''
-        let file_path = m[1]
-      endif
-      continue
-    endif
-
-    if !hunk_active && l =~# '^+++ '
-      let m = matchlist(l, '^+++ \%(b/\)\?\(.\{-}\)\s*$')
-      if len(m) >= 2
-        let file_path = m[1]
-      endif
-      continue
-    endif
-
-    " @@ -old_start,old_count +new_start,new_count @@
-    if l =~# '^@@@\? '
-      " Save previous hunk if any
-      if hunk_active && file_path !=# '' && file_path !=# '/dev/null'
-        call add(hunks, {'file': file_path, 'old_start': old_start, 'old_count': old_count, 'new_lines': new_lines})
-      endif
-      let m_regular = matchlist(l, '^@@ -\(\d\+\),\?\(\d*\) +\(\d\+\),\?\(\d*\) @@')
-      let m_combined = matchlist(l, '^@@@ -\d\+\%(,\d\+\)\? -\d\+\%(,\d\+\)\? +\(\d\+\),\?\(\d*\) @@@')
-      if len(m_regular) >= 5
-        let old_start = str2nr(m_regular[1])
-        let old_count = m_regular[2] ==# '' ? 1 : str2nr(m_regular[2])
-        let hunk_active = 1
-        let new_lines = []
-      elseif len(m_combined) >= 3
-        let old_start = str2nr(m_combined[1])
-        let old_count = m_combined[2] ==# '' ? 1 : str2nr(m_combined[2])
-        let hunk_active = 1
-        let new_lines = []
-      else
-        let hunk_active = 0
-      endif
-      continue
-    endif
-
-    if !hunk_active
-      continue
-    endif
-
-    if l =~# '^\\ No newline at end of file'
-      continue
-    endif
-
-    let first_char = strpart(l, 0, 1)
-
-    if first_char ==# ' '
-      call add(new_lines, strpart(l, 1))
-    elseif first_char ==# '+'
-      call add(new_lines, substitute(l, '^+\+', '', ''))
-    elseif first_char ==# '-'
-      " Removed lines are not included in new content
-    endif
-  endfor
-
-  " Save final hunk
-  if hunk_active && file_path !=# '' && file_path !=# '/dev/null'
-    call add(hunks, {'file': file_path, 'old_start': old_start, 'old_count': old_count, 'new_lines': new_lines})
-  endif
-
-  return hunks
-endfunction
-
-function! s:GtdWrite() abort
-  let hunks = <SID>DiffToHunks()
-  if empty(hunks)
-    echo "No hunks found"
-    return
-  endif
-
-  " Group hunks by file
-  let by_file = {}
-  for hunk in hunks
-    if !has_key(by_file, hunk.file)
-      let by_file[hunk.file] = []
-    endif
-    call add(by_file[hunk.file], hunk)
-  endfor
-
-  let files_written = []
-  for [fpath, file_hunks] in items(by_file)
-    " Sort hunks by old_start descending (bottom-to-top)
-    call sort(file_hunks, {a, b -> b.old_start - a.old_start})
-
-    " Load the file into a buffer
-    let bufnr = bufadd(fpath)
-    call bufload(bufnr)
-
-    for hunk in file_hunks
-      if hunk.old_count > 0
-        call deletebufline(bufnr, hunk.old_start, hunk.old_start + hunk.old_count - 1)
-      endif
-      if !empty(hunk.new_lines)
-        let insert_at = hunk.old_count > 0 ? hunk.old_start - 1 : hunk.old_start
-        call appendbufline(bufnr, insert_at, hunk.new_lines)
-      endif
-    endfor
-
-    " Write the buffer
-    let save_buf = bufnr('%')
-    execute 'silent ' . bufnr . 'buffer'
-    silent write
-    execute 'silent ' . save_buf . 'buffer'
-    call add(files_written, fpath)
-  endfor
-
-  echo printf("GtdWrite: %d file(s) written", len(files_written))
 endfunction
 
 function! s:DiffToGrep(cursor_only) abort
