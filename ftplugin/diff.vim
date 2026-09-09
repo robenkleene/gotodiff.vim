@@ -7,12 +7,22 @@ nnoremap <silent> <buffer> <C-w>d :GtdNew<CR>
 nnoremap <silent> <buffer> gC :GtdQflist<CR>
 nnoremap <silent> <buffer> gL :GtdLoclist<CR>
 
+cnoremap <buffer> <C-r><C-f> <C-\>e<SID>GtdCmdlineCfile()<CR>
+
 command! GtdEdit :call <SID>GtdEdit("edit")
 command! GtdPedit :call <SID>GtdEdit("pedit")
 command! GtdNew :call <SID>GtdEdit("split")
 
 command! GtdLoclist :call <SID>GtdLoclist()
 command! GtdQflist :call <SID>GtdQflist()
+
+function! s:GtdCmdlineCfile() abort
+  let l:file = substitute(expand('<cfile>'), '^[ab]/', '', '')
+  let l:cmdline = getcmdline()
+  let l:pos = getcmdpos() - 1
+  call setcmdpos(l:pos + len(l:file) + 1)
+  return strpart(l:cmdline, 0, l:pos).l:file.strpart(l:cmdline, l:pos)
+endfunction
 
 function! s:GtdQflist()
   let l:lines = <SID>DiffToGrep(v:false)

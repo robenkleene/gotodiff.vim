@@ -1,5 +1,9 @@
 # Goto Diff
 
+## Command Line File Names
+
+In a `diff` buffer, `<C-r><C-f>` on the command line inserts the file name under the cursor with the `a/` or `b/` diff prefix stripped, e.g., so `!git add <C-r><C-f>` can be used to add the file at the cursor.
+
 ## Complementary Customizations
 
 `gotodiff.vim` lets `diff` buffers to be used similar to other buffers that are using primary for navigation like `netrw` buffers and the `quickfix` list. These additional customizations aren't enabled by default (because they might disrupt some workflows), but might be useful:
